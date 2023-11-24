@@ -111,7 +111,7 @@ namespace AzureSignTool
             {
                 if (_allFiles == null)
                 {
-                    _allFiles = new HashSet<string>(Files);
+                    _allFiles = new HashSet<string>(ExpandWildcards(Files));
                     if (!string.IsNullOrWhiteSpace(InputFileList))
                     {
                         _allFiles.UnionWith(File.ReadLines(InputFileList).Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -426,6 +426,45 @@ namespace AzureSignTool
             }
 
             return collection;
+        }
+
+        private static IEnumerable<string> ExpandWildcards(string[] files)
+        {
+            if (files.Length == 0)
+            {
+                return files;
+            }
+
+            var expandedFiles = new List<string>(files.Length);
+
+            foreach (var file in files)
+            {
+                var fileName = Path.GetFileName(file);
+
+                if (fileName.Any(c => c is '*' or '?'))
+                {
+                    var directory = Path.GetDirectoryName(file);
+
+                    if (string.IsNullOrEmpty(directory))
+                    {
+                        directory = ".";
+                    }
+
+                    var enumeratedFiles = Directory.EnumerateFiles(directory, fileName, SearchOption.TopDirectoryOnly)
+                        .ToArray();
+
+                    if (enumeratedFiles.Any())
+                    {
+                        expandedFiles.AddRange(enumeratedFiles);
+                    }
+                }
+                else
+                {
+                    expandedFiles.Add(file);
+                }
+            }
+
+            return expandedFiles;
         }
 
         private static bool OneTrue(params bool[] values) => values.Count(v => v) == 1;
